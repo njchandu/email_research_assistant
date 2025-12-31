@@ -14,10 +14,14 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements.txt
-      - name: Debug - Check env vars are set
+      - name: Debug - Test Serper API directly
         run: |
-          echo "SERPER_API_KEY is set: ${{ secrets.SERPER_API_KEY != '' }}"
           echo "SERPER length: ${#SERPER_API_KEY}"
+          echo "First 4 chars: ${SERPER_API_KEY:0:4}"
+          curl -s -X POST "https://google.serper.dev/search" \
+            -H "X-API-KEY: ${SERPER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"q":"test"}' | head -c 200
         env:
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
       - run: python email_script.py
