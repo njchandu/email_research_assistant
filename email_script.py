@@ -6,6 +6,9 @@ This script searches for AI-related content, summarizes it, and sends a daily em
 """
 
 from __future__ import print_function
+import http.client
+http.client._MAXHEADERS = 500
+
 import json
 import os
 import pathlib
@@ -14,7 +17,7 @@ from typing import List, Dict, Any, Literal, Annotated
 
 import requests
 from bs4 import BeautifulSoup
-from langchain.schema import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
@@ -28,16 +31,15 @@ from sib_api_v3_sdk.rest import ApiException
 # Configuration
 SEARCH_TERMS = [
     "Agentic AI",
-    "OpenAI LinkedIn",
-    "Perplexity LinkedIn",
-    "Meta AI LinkedIn",
-    "Anthropic LinkedIn"
+    "H1B", "one top awesome tool from awesome consolidated repos",
+    "Roku","Top 10 Reddit Posts of the day","Top one related to claude on reddit and outside",
+    "S&P 500","Top 5 Trending Repos of the day"
 ]
 
 required_environment_variables = [
     "SERPER_API_KEY",
-    "SCRAPING_API_KEY",
-    "SENDINGBLUE_API_KEY",
+    "SCRAPINGFISH_API_KEY",
+    "BREVO_API_KEY",
     "OPENAI_API_KEY"
 ]
 
@@ -140,7 +142,7 @@ def check_search_relevance(search_results: Dict[str, Any]) -> RelevanceCheckOutp
     """
     prompt = load_prompt("relevance_check")
     prompt_template = ChatPromptTemplate.from_messages([("system", prompt)])
-    llm = ChatOpenAI(model="gpt-4o").with_structured_output(RelevanceCheckOutput)
+    llm = ChatOpenAI(model="gpt-4o-mini").with_structured_output(RelevanceCheckOutput)
     
     return (prompt_template | llm).invoke({'input_search_results': search_results})
 
@@ -201,7 +203,7 @@ def scrape_and_save_markdown(relevant_results: List[Dict[str, Any]]) -> List[Dic
             continue
 
         payload = {
-            "api_key": os.getenv("SCRAPING_API_KEY"),
+            "api_key": os.getenv("SCRAPINGFISH_API_KEY"),
             "url": result['link'],
             "render_js": "true"
         }
@@ -244,7 +246,7 @@ def generate_summaries(markdown_contents: List[Dict[str, Any]]) -> List[Dict[str
     pathlib.Path("markdown_summaries").mkdir(exist_ok=True)
     summary_prompt = load_prompt("summarise_markdown_page")
     summary_template = ChatPromptTemplate.from_messages([("system", summary_prompt)])
-    llm = ChatOpenAI(model="gpt-4o")
+    llm = ChatOpenAI(model="gpt-4o-mini")
     summary_chain = summary_template | llm
     
     summaries = []
@@ -314,17 +316,20 @@ def conditional_edge(state: State) -> Literal["summariser", END]:
 
 def send_email(email_content: str):
     """Send email using Sendinblue API."""
+    from datetime import datetime
+
     configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = os.getenv("SENDINGBLUE_API_KEY")
-    
+    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
+
     api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
-    
+
+    subject = f"Daily AI Research Summary - {datetime.now().strftime('%Y-%m-%d-%H')}"
     email_params = {
-        "subject": "Daily AI Research Summary",
+        "subject": subject,
         "sender": {"name": "Will White", "email": os.getenv("DESTINATION_EMAIL")},
         "html_content": email_content,
         "to": [{"email": os.getenv("DESTINATION_EMAIL"), "name": "Will White"}],
-        "params": {"subject": "Daily AI Research Summary"}
+        "params": {"subject": subject}
     }
     
     try:
@@ -338,20 +343,19 @@ def send_email(email_content: str):
 
 def main():
     """Main execution flow."""
-    try:
-        validate_environment_variables()
-    except ValueError as e:
-        with open(".env", "w") as f:
-            # Load environment variables from .env file
-            for line in f:
-                if '=' in line:
-                    key, value = line.strip().split('=', 1)
-                    os.environ[key] = value
-        print("Loaded environment variables from .env file")
-    
+    import logging
+    logging.basicConfig(level=logging.WARNING)
+
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    print("Environment loaded")
+    validate_environment_variables()
+    print("Environment validated")
+
     # Search and filter results
     relevant_results = []
     for search_term in SEARCH_TERMS:
+        print(f"Searching for: {search_term}")
         results = search_serper(search_term)
         filtered_results = check_search_relevance(results)
         relevant_ids = [r.id for r in filtered_results.relevant_results]
@@ -363,7 +367,7 @@ def main():
     summaries = generate_summaries(markdown_contents)
 
     # Set up LLM workflow
-    llm = ChatOpenAI(model="gpt-4o")
+    llm = ChatOpenAI(model="gpt-4o-mini")
     
     with open("email_template.md", "r") as f:
         email_template = f.read()
