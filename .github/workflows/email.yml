@@ -14,6 +14,12 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements.txt
+      - name: Debug - Check env vars are set
+        run: |
+          echo "SERPER_API_KEY is set: ${{ secrets.SERPER_API_KEY != '' }}"
+          echo "SERPER length: ${#SERPER_API_KEY}"
+        env:
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
       - run: python email_script.py
         env:
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
