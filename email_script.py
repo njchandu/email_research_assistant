@@ -347,7 +347,7 @@ def main():
     logging.basicConfig(level=logging.WARNING)
 
     from dotenv import load_dotenv
-    load_dotenv(override=True)
+    load_dotenv(override=False)  # Don't override env vars from GitHub Actions
     print("Environment loaded")
     validate_environment_variables()
     print("Environment validated")
