@@ -17,6 +17,7 @@ jobs:
       - run: python email_script.py
         env:
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
-          SCRAPING_API_KEY: ${{ secrets.SCRAPING_API_KEY }}
-          SENDINBLUE_API_KEY: ${{ secrets/SENDINBLUE_API_KEY }}
+          SCRAPINGFISH_API_KEY: ${{ secrets.SCRAPINGFISH_API_KEY }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          DESTINATION_EMAIL: ${{ secrets.DESTINATION_EMAIL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
