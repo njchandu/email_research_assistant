@@ -349,6 +349,8 @@ def main():
     from dotenv import load_dotenv
     load_dotenv(override=False)  # Don't override env vars from GitHub Actions
     print("Environment loaded")
+    print(f"OPENAI key length: {len(os.getenv('OPENAI_API_KEY', ''))}")
+    print(f"OPENAI key starts with: {os.getenv('OPENAI_API_KEY', '')[:10]}")
     validate_environment_variables()
     print("Environment validated")
 
