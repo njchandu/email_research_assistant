@@ -353,17 +353,14 @@ def send_email(email_content: str):
 
     subject = f"Chandan's Daily Insights - {datetime.now().strftime('%Y-%m-%d')}"
 
-    try:
-        params: resend.Emails.SendParams = {
-            "from": "Chandan's Daily Insights <onboarding@resend.dev>",
-            "to": [destination],
-            "subject": subject,
-            "html": email_content,
-        }
-        response = resend.Emails.send(params)
-        logger.info(f"[EMAIL] Sent successfully: {response}")
-    except Exception as e:
-        logger.error(f"[EMAIL] Failed to send: {e}")
+    params: resend.Emails.SendParams = {
+        "from": "Chandan's Daily Insights <onboarding@resend.dev>",
+        "to": [destination],
+        "subject": subject,
+        "html": email_content,
+    }
+    response = resend.Emails.send(params)
+    logger.info(f"[EMAIL] Sent successfully: {response}")
 
 
 def main():
