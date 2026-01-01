@@ -349,9 +349,9 @@ def send_email(email_content: str):
     subject = f"Daily AI Research Summary - {datetime.now().strftime('%Y-%m-%d-%H')}"
     email_params = {
         "subject": subject,
-        "sender": {"name": "Chandan", "email": os.getenv("DESTINATION_EMAIL")},
+        "sender": {"name": "Chandan's Daily Insights", "email": os.getenv("DESTINATION_EMAIL")},
         "html_content": email_content,
-        "to": [{"email": os.getenv("DESTINATION_EMAIL"), "name": "Chandan"}],
+        "to": [{"email": os.getenv("DESTINATION_EMAIL"), "name": "Chandan's Daily Insights"}],
         "params": {"subject": subject}
     }
 
