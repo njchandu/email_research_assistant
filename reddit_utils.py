@@ -133,8 +133,23 @@ def get_top_post_with_comments(
             logger.warning(f"[REDDIT] Failed to fetch post {post['url']}: {e}")
             continue
 
-    logger.warning(f"[REDDIT] Could not fetch any posts for '{keyword}'")
-    return None
+    logger.info(f"[REDDIT] Using Serper snippet fallback for '{keyword}'")
+    top_post = posts[0]
+    result = {
+        "keyword": keyword,
+        "subreddit_filter": subreddit,
+        "post": {
+            "title": top_post["title"],
+            "url": top_post["url"],
+            "score": 0,
+            "num_comments": 0,
+            "subreddit": subreddit or "unknown",
+            "selftext": top_post.get("snippet", ""),
+        },
+        "comments": []
+    }
+    logger.info(f"[REDDIT] === Done with '{keyword}' (snippet only, no comments) ===\n")
+    return result
 
 
 if __name__ == "__main__":
