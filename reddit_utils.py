@@ -13,7 +13,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    "User-Agent": "python:daily-insights:v1.0 (by /u/chandan_insights)",
+    "Accept": "application/json",
 }
 
 

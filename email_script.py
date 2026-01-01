@@ -29,8 +29,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
-import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
+import resend
 
 from reddit_utils import get_top_post_with_comments
 
@@ -66,8 +65,9 @@ QUICK_CONFIG = {
 required_environment_variables = [
     "SERPER_API_KEY",
     "SCRAPINGFISH_API_KEY",
-    "BREVO_API_KEY",
-    "OPENAI_API_KEY"
+    "RESEND_API_KEY",
+    "OPENAI_API_KEY",
+    "DESTINATION_EMAIL"
 ]
 
 
@@ -346,28 +346,23 @@ def conditional_edge(state: State) -> Literal["summariser", END]:
 def send_email(email_content: str):
     from datetime import datetime
 
-    logger.info("[EMAIL] Sending email via Brevo")
+    logger.info("[EMAIL] Sending email via Resend")
 
-    configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
+    resend.api_key = os.getenv("RESEND_API_KEY")
+    destination = os.getenv("DESTINATION_EMAIL")
 
-    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
-
-    subject = f"Daily AI Research Summary - {datetime.now().strftime('%Y-%m-%d-%H')}"
-    email_params = {
-        "subject": subject,
-        "sender": {"name": "Chandan's Daily Insights", "email": os.getenv("DESTINATION_EMAIL")},
-        "html_content": email_content,
-        "to": [{"email": os.getenv("DESTINATION_EMAIL"), "name": "Chandan's Daily Insights"}],
-        "params": {"subject": subject}
-    }
+    subject = f"Chandan's Daily Insights - {datetime.now().strftime('%Y-%m-%d')}"
 
     try:
-        api_response = api_instance.send_transac_email(
-            sib_api_v3_sdk.SendSmtpEmail(**email_params)
-        )
-        logger.info(f"[EMAIL] Sent successfully: {api_response}")
-    except ApiException as e:
+        params: resend.Emails.SendParams = {
+            "from": "Chandan's Daily Insights <onboarding@resend.dev>",
+            "to": [destination],
+            "subject": subject,
+            "html": email_content,
+        }
+        response = resend.Emails.send(params)
+        logger.info(f"[EMAIL] Sent successfully: {response}")
+    except Exception as e:
         logger.error(f"[EMAIL] Failed to send: {e}")
 
 
