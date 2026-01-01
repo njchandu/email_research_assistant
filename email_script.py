@@ -40,26 +40,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SEARCH_CONFIG = {
-    "topics": [
-        {"term": "Agentic AI", "category": "Agentic AI"},
-        {"term": "H1B visa news", "category": "H1B / Immigration"},
-        {"term": "S&P 500 market today", "category": "Markets & Finance"},
-        {"term": "GitHub trending repos", "category": "GitHub / Developer Tools"},
-    ],
-    "reddit_keywords": [
-        {"keyword": "claude ai", "subreddit": None},
-        {"keyword": "local llm", "subreddit": "LocalLLaMA"},
-    ]
-}
+
+def load_config(config_path: str = "config.json") -> dict:
+    with open(config_path, "r") as f:
+        return json.load(f)
+
+
+SEARCH_CONFIG = load_config()
 
 QUICK_CONFIG = {
-    "topics": [
-        {"term": "Agentic AI", "category": "Agentic AI"},
-    ],
-    "reddit_keywords": [
-        {"keyword": "claude ai", "subreddit": None},
-    ]
+    "topics": SEARCH_CONFIG["topics"][:1],
+    "reddit_keywords": SEARCH_CONFIG["reddit_keywords"][:1]
 }
 
 required_environment_variables = [
