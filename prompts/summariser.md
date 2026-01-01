@@ -24,6 +24,7 @@ You MUST output valid HTML that follows this structure:
   <li><b><a href="URL">Article Title</a></b> - 2-3 sentence summary of the key insight.</li>
   <li><b><a href="URL">Article Title</a></b> - Summary.</li>
 </ul>
+<p><b>Takeaway:</b> <i>1-2 sentence synthesis of what these articles mean together - your perspective on the trend or key insight.</i></p>
 
 <hr>
 
@@ -31,6 +32,7 @@ You MUST output valid HTML that follows this structure:
 <ul>
   <li><b><a href="URL">Title</a></b> - Summary.</li>
 </ul>
+<p><b>Takeaway:</b> <i>Your synthesis...</i></p>
 
 <hr>
 
