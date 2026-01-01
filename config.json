@@ -4,7 +4,7 @@
     {"term": "H1B visa news", "category": "H1B / Immigration"},
     {"term": "S&P 500 market today", "category": "Markets & Finance"},
     {"term": "Roku and its stocks", "category": "CTV & Markets"},
-{"term":"How are people using the AI Agents in the industry - from social media platforms", "category":""}
+{"term": "How are people using AI Agents in the industry", "category": "AI Agents in Practice"}
   ],
   "reddit_keywords": [
     {"keyword": "claude ai", "subreddit": null},
