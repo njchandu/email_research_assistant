@@ -296,10 +296,17 @@ def fetch_reddit_data(reddit_config: List[Dict], num_comments: int = 5) -> List[
 
 def summariser(state: State) -> Dict:
     logger.info("[GRAPH] Running summariser node")
+    reddit_data = state.get("reddit_data", [])
+    logger.info(f"[GRAPH] Reddit data count: {len(reddit_data)}")
+    if reddit_data:
+        logger.info(f"[GRAPH] Reddit keywords: {[r.get('keyword') for r in reddit_data]}")
+    else:
+        logger.warning("[GRAPH] No Reddit data provided to summariser!")
+
     summariser_output = llm_summariser.invoke({
         "messages": state["messages"],
         "list_of_summaries": state["summaries"],
-        "reddit_data": json.dumps(state.get("reddit_data", []), indent=2),
+        "reddit_data": json.dumps(reddit_data, indent=2),
         "input_template": state["email_template"]
     })
     new_messages = [

@@ -59,10 +59,12 @@ You MUST output valid HTML that follows this structure:
 
 1. **Every article MUST have a clickable link** - use the URL from the input
 2. **Group web articles by their category** - use the category provided in the input
-3. **For Reddit sections**: Use the exact data provided (post title, URL, score, comments, subreddit)
-4. **Keep comment excerpts short** - max 100 characters, end with "..." if truncated
-5. **Use emojis sparingly** - only if it helps readability
-6. **Be factual** - don't embellish or make up information
+3. **CRITICAL: You MUST include the Reddit Digest section** - if Reddit data is provided, you MUST include it in the output
+4. **For Reddit sections**: Use the exact data provided (post title, URL, score, comments, subreddit)
+5. **Keep comment excerpts short** - max 100 characters, end with "..." if truncated
+6. **Use emojis sparingly** - only if it helps readability
+7. **Be factual** - don't embellish or make up information
+8. **Do NOT skip any section** - both web summaries AND Reddit digest must appear in the final output
 
 # Input Data
 
