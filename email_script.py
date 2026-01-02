@@ -330,8 +330,15 @@ def reviewer(state: State) -> Dict:
     }
 
 
+MAX_REVIEW_ITERATIONS = 3
+
 def conditional_edge(state: State) -> Literal["summariser", END]:
-    return END if state["approved"] else "summariser"
+    iterations = len(state.get("created_summaries", []))
+    if state["approved"] or iterations >= MAX_REVIEW_ITERATIONS:
+        if iterations >= MAX_REVIEW_ITERATIONS:
+            logger.warning(f"[GRAPH] Max iterations ({MAX_REVIEW_ITERATIONS}) reached, accepting current summary")
+        return END
+    return "summariser"
 
 
 def send_email(email_content: str):
