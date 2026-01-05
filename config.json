@@ -4,10 +4,10 @@
     {"term": "H1B visa news", "category": "H1B / Immigration"},
     {"term": "S&P 500 market today", "category": "Markets & Finance"},
     {"term": "Roku and its stocks", "category": "CTV & Markets"},
-{"term": "How are people using AI Agents in the industry", "category": "AI Agents in Practice"}
+    {"term": "How are people using AI Agents in the industry", "category": "AI Agents in Practice"}
   ],
   "reddit_keywords": [
-    {"keyword": "claude ai", "subreddit": null},
-    {"keyword": "local llm", "subreddit": "LocalLLaMA"}
+    {"keyword": "How are people using AI Agents in the industry", "subreddit": null},
+    {"keyword": "Agentic AI", "subreddit": "LocalLLaMA"}
   ]
 }
