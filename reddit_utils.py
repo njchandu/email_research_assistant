@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Reddit utilities for searching and fetching posts with comments via Serper."""
+"""Reddit utilities for searching and fetching posts with comments via ScrapingFish proxy."""
 
 import logging
 import os
 import time
+import urllib.parse
 import requests
 from typing import Optional
 
@@ -20,158 +21,153 @@ REDDIT_HEADERS = {
 }
 
 
-def search_reddit_via_serper(
+def search_reddit_via_scrapingfish(
     keyword: str,
     subreddit: Optional[str] = None,
-    num_results: int = 5
+    num_results: int = 5,
+    time_filter: str = "day"
 ) -> list[dict]:
-    logger.info(f"[REDDIT] Searching Reddit via Serper for '{keyword}' (subreddit={subreddit or 'all'})")
+    """Search Reddit for top posts using ScrapingFish proxy.
+
+    Args:
+        keyword: Search term
+        subreddit: Optional subreddit to restrict search to
+        num_results: Number of posts to return
+        time_filter: Time filter (hour, day, week, month, year, all)
+    """
+    logger.info(f"[REDDIT] Searching Reddit for '{keyword}' (subreddit={subreddit or 'all'}, sort=top, t={time_filter})")
+
+    encoded_keyword = urllib.parse.quote(keyword)
 
     if subreddit:
-        query = f"site:reddit.com/r/{subreddit} {keyword}"
+        reddit_url = f"https://www.reddit.com/r/{subreddit}/search.json?q={encoded_keyword}&restrict_sr=on&sort=top&t={time_filter}&type=link&limit={num_results + 5}"
     else:
-        query = f"site:reddit.com {keyword}"
+        reddit_url = f"https://www.reddit.com/search.json?q={encoded_keyword}&sort=top&t={time_filter}&type=link&limit={num_results + 5}"
 
-    url = "https://google.serper.dev/search"
     payload = {
-        "q": query,
-        "num": num_results,
-    }
-    headers = {
-        "X-API-KEY": os.getenv("SERPER_API_KEY"),
-        "Content-Type": "application/json"
+        "api_key": os.getenv("SCRAPINGFISH_API_KEY"),
+        "url": reddit_url,
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response = requests.get("https://scraping.narf.ai/api/v1/", params=payload, timeout=30)
         response.raise_for_status()
         data = response.json()
     except Exception as e:
-        logger.error(f"[REDDIT] Serper search failed: {e}")
+        logger.error(f"[REDDIT] ScrapingFish search failed: {e}")
         return []
 
     posts = []
-    for item in data.get("organic", []):
-        link = item.get("link", "")
-        if "/comments/" in link:
+    for child in data.get("data", {}).get("children", []):
+        post_data = child.get("data", {})
+        permalink = post_data.get("permalink", "")
+        if permalink:
             posts.append({
-                "title": item.get("title", ""),
-                "url": link,
-                "snippet": item.get("snippet", ""),
+                "title": post_data.get("title", ""),
+                "url": f"https://www.reddit.com{permalink}",
+                "score": post_data.get("score", 0),
+                "num_comments": post_data.get("num_comments", 0),
+                "subreddit": post_data.get("subreddit", ""),
+                "selftext": post_data.get("selftext", "")[:500],
             })
 
-    logger.info(f"[REDDIT] Found {len(posts)} Reddit posts via Serper")
+    posts.sort(key=lambda x: x["score"], reverse=True)
+    posts = posts[:num_results]
+
+    logger.info(f"[REDDIT] Found {len(posts)} top Reddit posts via ScrapingFish")
     return posts
 
 
-def fetch_post_comments(post_url: str, num_comments: int = 5) -> tuple[dict, list[dict]]:
+def fetch_post_comments_via_scrapingfish(post_url: str, num_comments: int = 5) -> list[dict]:
+    """Fetch comments for a Reddit post using ScrapingFish proxy."""
     json_url = post_url.rstrip("/") + ".json"
     logger.info(f"[REDDIT] Fetching comments from: {post_url}")
 
+    payload = {
+        "api_key": os.getenv("SCRAPINGFISH_API_KEY"),
+        "url": json_url,
+    }
+
     try:
-        response = requests.get(json_url, headers=REDDIT_HEADERS, timeout=30)
-
-        if response.status_code == 429:
-            logger.warning("[REDDIT] Rate limited, waiting 2 seconds...")
-            time.sleep(2)
-            response = requests.get(json_url, headers=REDDIT_HEADERS, timeout=30)
-
+        response = requests.get("https://scraping.narf.ai/api/v1/", params=payload, timeout=30)
         response.raise_for_status()
         data = response.json()
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         logger.error(f"[REDDIT] Failed to fetch comments: {e}")
-        return {}, []
+        return []
 
-    if not data or len(data) < 1:
-        logger.error("[REDDIT] Invalid response structure")
-        return {}, []
+    if not data or len(data) < 2:
+        logger.warning("[REDDIT] No comments data in response")
+        return []
 
     try:
-        post_data = data[0]["data"]["children"][0]["data"]
-        post = {
-            "title": post_data.get("title", ""),
-            "url": post_url,
-            "score": post_data.get("score", 0),
-            "num_comments": post_data.get("num_comments", 0),
-            "subreddit": post_data.get("subreddit", ""),
-            "selftext": post_data.get("selftext", "")[:500],
-        }
-
         comments = []
-        if len(data) > 1:
-            raw_comments = data[1]["data"]["children"]
-            logger.info(f"[REDDIT] Found {len(raw_comments)} raw comments")
-            for child in raw_comments:
-                if child["kind"] == "t1":
-                    comment_data = child["data"]
-                    comments.append({
-                        "author": comment_data.get("author", "[deleted]"),
-                        "score": comment_data.get("score", 0),
-                        "body": comment_data.get("body", "")[:500],
-                    })
+        raw_comments = data[1]["data"]["children"]
+        logger.info(f"[REDDIT] Found {len(raw_comments)} raw comments")
+        for child in raw_comments:
+            if child["kind"] == "t1":
+                comment_data = child["data"]
+                comments.append({
+                    "author": comment_data.get("author", "[deleted]"),
+                    "score": comment_data.get("score", 0),
+                    "body": comment_data.get("body", "")[:500],
+                })
 
         comments_sorted = sorted(comments, key=lambda x: x["score"], reverse=True)
         top_comments = comments_sorted[:num_comments]
         logger.info(f"[REDDIT] Returning top {len(top_comments)} comments (sorted by score)")
-        return post, top_comments
+        return top_comments
     except (KeyError, IndexError) as e:
-        logger.error(f"[REDDIT] Failed to parse response: {e}")
-        return {}, []
+        logger.error(f"[REDDIT] Failed to parse comments: {e}")
+        return []
 
 
 def get_top_posts_with_comments(
     keyword: str,
     subreddit: Optional[str] = None,
     num_posts: int = 3,
-    num_comments: int = 5
+    num_comments: int = 5,
+    time_filter: str = "day"
 ) -> list[dict]:
-    """Fetch multiple top posts with comments for a keyword."""
-    logger.info(f"[REDDIT] === Processing keyword: '{keyword}' (subreddit={subreddit or 'all'}, num_posts={num_posts}) ===")
+    """Fetch top-voted posts with comments for a keyword using ScrapingFish.
 
-    posts = search_reddit_via_serper(keyword, subreddit=subreddit, num_results=num_posts + 2)
+    Args:
+        keyword: Search term
+        subreddit: Optional subreddit to restrict search to
+        num_posts: Number of posts to return
+        num_comments: Number of top comments per post
+        time_filter: Time filter (hour, day, week, month, year, all)
+    """
+    logger.info(f"[REDDIT] === Processing keyword: '{keyword}' (subreddit={subreddit or 'all'}, num_posts={num_posts}, t={time_filter}) ===")
+
+    posts = search_reddit_via_scrapingfish(keyword, subreddit=subreddit, num_results=num_posts, time_filter=time_filter)
 
     if not posts:
         logger.warning(f"[REDDIT] No results for '{keyword}', skipping")
         return []
 
     results = []
-    for post in posts[:num_posts + 2]:
-        if len(results) >= num_posts:
-            break
-
+    for post in posts:
         try:
             time.sleep(0.5)
-            post_details, comments = fetch_post_comments(post["url"], num_comments=num_comments)
+            comments = fetch_post_comments_via_scrapingfish(post["url"], num_comments=num_comments)
 
-            if post_details:
-                result = {
-                    "keyword": keyword,
-                    "subreddit_filter": subreddit,
-                    "post": post_details,
-                    "comments": comments
-                }
-                results.append(result)
-                logger.info(f"[REDDIT] Got post: {post_details.get('title', '')[:50]}... ({post_details.get('score', 0)} upvotes, {len(comments)} comments)")
+            result = {
+                "keyword": keyword,
+                "subreddit_filter": subreddit,
+                "post": post,
+                "comments": comments
+            }
+            results.append(result)
+            logger.info(f"[REDDIT] Got post: {post.get('title', '')[:50]}... ({post.get('score', 0)} upvotes, {len(comments)} comments)")
         except Exception as e:
-            logger.warning(f"[REDDIT] Failed to fetch post {post['url']}: {e}")
-            continue
-
-    if not results and posts:
-        logger.info(f"[REDDIT] Using Serper snippet fallback for '{keyword}'")
-        top_post = posts[0]
-        results.append({
-            "keyword": keyword,
-            "subreddit_filter": subreddit,
-            "post": {
-                "title": top_post["title"],
-                "url": top_post["url"],
-                "score": 0,
-                "num_comments": 0,
-                "subreddit": subreddit or "unknown",
-                "selftext": top_post.get("snippet", ""),
-            },
-            "comments": []
-        })
+            logger.warning(f"[REDDIT] Failed to fetch comments for {post['url']}: {e}")
+            results.append({
+                "keyword": keyword,
+                "subreddit_filter": subreddit,
+                "post": post,
+                "comments": []
+            })
 
     logger.info(f"[REDDIT] === Done with '{keyword}': {len(results)} posts ===\n")
     return results
@@ -192,5 +188,5 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
 
-    results = get_top_posts_with_comments("claude ai", num_posts=3, num_comments=3)
+    results = get_top_posts_with_comments("agentic AI", num_posts=3, num_comments=3, time_filter="day")
     print(json.dumps(results, indent=2))
