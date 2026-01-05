@@ -40,9 +40,9 @@ def search_reddit_via_scrapingfish(
     encoded_keyword = urllib.parse.quote(keyword)
 
     if subreddit:
-        reddit_url = f"https://www.reddit.com/r/{subreddit}/search.json?q={encoded_keyword}&restrict_sr=on&sort=top&t={time_filter}&type=link&limit={num_results + 5}"
+        reddit_url = f"https://www.reddit.com/r/{subreddit}/search.json?q={encoded_keyword}&restrict_sr=on&sort=relevance&t={time_filter}&type=link&limit={num_results + 10}"
     else:
-        reddit_url = f"https://www.reddit.com/search.json?q={encoded_keyword}&sort=top&t={time_filter}&type=link&limit={num_results + 5}"
+        reddit_url = f"https://www.reddit.com/search.json?q={encoded_keyword}&sort=relevance&t={time_filter}&type=link&limit={num_results + 10}"
 
     payload = {
         "api_key": os.getenv("SCRAPINGFISH_API_KEY"),
