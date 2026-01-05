@@ -28,7 +28,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 import resend
 
-from reddit_utils import get_top_post_with_comments
+from reddit_utils import get_top_posts_with_comments
 
 logging.basicConfig(
     level=logging.INFO,
@@ -254,19 +254,19 @@ def generate_summaries(markdown_contents: List[Dict[str, Any]]) -> List[Dict[str
     return summaries
 
 
-def fetch_reddit_data(reddit_config: List[Dict], num_comments: int = 5) -> List[Dict]:
-    logger.info(f"[REDDIT] Fetching data for {len(reddit_config)} keywords")
+def fetch_reddit_data(reddit_config: List[Dict], num_posts: int = 3, num_comments: int = 5) -> List[Dict]:
+    logger.info(f"[REDDIT] Fetching data for {len(reddit_config)} keywords ({num_posts} posts each)")
     reddit_data = []
 
     for item in reddit_config:
-        result = get_top_post_with_comments(
+        results = get_top_posts_with_comments(
             keyword=item["keyword"],
             subreddit=item.get("subreddit"),
+            num_posts=num_posts,
             num_comments=num_comments
         )
-        if result:
-            reddit_data.append(result)
-        else:
+        reddit_data.extend(results)
+        if not results:
             logger.warning(f"[REDDIT] No results for keyword: {item['keyword']}")
 
     logger.info(f"[REDDIT] Fetched {len(reddit_data)} Reddit posts with comments")
@@ -296,25 +296,38 @@ Article summaries:
 """
 
 
-REDDIT_SECTION_PROMPT = """You are generating ONE section of an email digest for Reddit keyword: "{keyword}"
+REDDIT_SECTION_PROMPT = """You are analyzing a Reddit discussion for an email digest.
 
-Given the Reddit post data below, create an HTML section following this exact format:
+Given the Reddit post and comments below, create a rich, insightful HTML section that captures the essence of the discussion.
 
-<h2>Keyword: "{keyword}"</h2>
-<p><b><a href="REDDIT_URL">Post Title</a></b> | [X] upvotes | [Y] comments | r/[subreddit]</p>
-<blockquote>Brief 2-sentence summary of what the post is about.</blockquote>
-<p><b>Top Comments:</b></p>
-<ol>
-  <li><b>u/[author]</b> ([score]): "[Comment excerpt, max 100 chars]..."</li>
-</ol>
+Format:
+<h3><a href="POST_URL">Post Title</a></h3>
+<p><i>r/[subreddit] | [X] upvotes | [Y] comments</i></p>
+
+<p><b>What's being discussed:</b> 2-3 sentence summary of the post and what sparked the discussion.</p>
+
+<p><b>Community sentiment:</b> What's the general consensus? Are people agreeing, disagreeing, or divided? What's the tone (excited, skeptical, frustrated, helpful)?</p>
+
+<p><b>Key insights from the comments:</b></p>
+<ul>
+  <li><b>[Insight theme]:</b> Summarize a notable perspective or piece of advice. Attribute to u/[author] if particularly valuable.</li>
+  <li><b>[Another theme]:</b> Another distinct viewpoint or useful information shared.</li>
+  <li><b>[Contrarian/interesting take]:</b> If there's a dissenting opinion or surprising insight, include it.</li>
+</ul>
+
+<p><b>Takeaway:</b> <i>1 sentence on what's worth knowing from this discussion.</i></p>
 
 <hr>
 
 Rules:
-- Use the exact URL, title, score, and subreddit from the input
-- Keep comment excerpts to max 100 characters, end with "..." if truncated
-- Include up to 5 top comments
-- Output ONLY the HTML section, nothing else
+- Actually analyze and synthesize - don't just list comments verbatim
+- Capture the SUBSTANCE of what people are saying, not just truncated quotes
+- Highlight genuinely useful insights, not just popular comments
+- Be honest about sentiment - if people are negative/skeptical, say so
+- Skip low-value comments (jokes, off-topic, "this")
+- If the post has few/no comments, focus on the post content itself
+- Use the exact URL from the input
+- Output ONLY the HTML section
 
 Reddit data:
 {reddit_data}
@@ -445,6 +458,7 @@ def main():
 
     reddit_data = fetch_reddit_data(
         config["reddit_keywords"],
+        num_posts=3 if not args.quick else 1,
         num_comments=5 if not args.quick else 3
     )
 
