@@ -294,8 +294,10 @@ def summariser(state: State) -> Dict:
     else:
         logger.warning("[GRAPH] No Reddit data provided to summariser!")
 
+    recent_messages = state["messages"][-4:] if len(state["messages"]) > 4 else state["messages"]
+
     summariser_output = llm_summariser.invoke({
-        "messages": state["messages"],
+        "messages": recent_messages,
         "list_of_summaries": state["summaries"],
         "reddit_data": json.dumps(reddit_data, indent=2),
         "input_template": state["email_template"]
