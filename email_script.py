@@ -18,17 +18,14 @@ import logging
 import os
 import pathlib
 import re
-from typing import List, Dict, Any, Literal, Annotated
+from datetime import datetime
+from typing import List, Dict, Any
 
 import requests
 from bs4 import BeautifulSoup
-from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
 import resend
 
 from reddit_utils import get_top_post_with_comments
@@ -77,23 +74,12 @@ class RelevanceCheckOutput(BaseModel):
     relevant_results: List[ResultRelevance]
 
 
-class State(TypedDict):
-    messages: Annotated[list, add_messages]
-    summaries: List[dict]
-    reddit_data: List[dict]
-    approved: bool
-    created_summaries: Annotated[List[dict], Field(description="The summaries created by the summariser")]
-    email_template: str
+class TopicSectionOutput(BaseModel):
+    html_section: str = Field(description="HTML section for this topic")
 
 
-class SummariserOutput(BaseModel):
-    email_summary: str = Field(description="The summary email of the content")
-    message: str = Field(description="A message to the reviewer requesting feedback")
-
-
-class ReviewerOutput(BaseModel):
-    approved: bool = Field(description="Whether the summary is approved")
-    message: str = Field(description="Feedback message from the reviewer")
+class RedditSectionOutput(BaseModel):
+    html_section: str = Field(description="HTML section for this Reddit keyword")
 
 
 def search_serper(search_query: str, num_results: int = 10) -> List[Dict[str, Any]]:
@@ -219,7 +205,8 @@ def scrape_and_save_markdown(relevant_results: List[Dict[str, Any]]) -> List[Dic
                 'markdown': markdown_content,
                 'title': result.get('title', ''),
                 'id': result.get('id', ''),
-                'category': result.get('category', 'General')
+                'category': result.get('category', 'General'),
+                'topic_term': result.get('topic_term', '')
             })
             logger.info(f"[SCRAPE] Saved: {filepath}")
 
@@ -255,7 +242,8 @@ def generate_summaries(markdown_contents: List[Dict[str, Any]]) -> List[Dict[str
                 'markdown_summary': summary.content,
                 'url': content['url'],
                 'title': content['title'],
-                'category': content.get('category', 'General')
+                'category': content.get('category', 'General'),
+                'topic_term': content.get('topic_term', '')
             })
             logger.info(f"[SUMMARIZE] Done: {content['title'][:50]}...")
 
@@ -285,67 +273,115 @@ def fetch_reddit_data(reddit_config: List[Dict], num_comments: int = 5) -> List[
     return reddit_data
 
 
-def summariser(state: State) -> Dict:
-    logger.info("[GRAPH] Running summariser node")
-    reddit_data = state.get("reddit_data", [])
-    logger.info(f"[GRAPH] Reddit data count: {len(reddit_data)}")
-    if reddit_data:
-        logger.info(f"[GRAPH] Reddit keywords: {[r.get('keyword') for r in reddit_data]}")
-    else:
-        logger.warning("[GRAPH] No Reddit data provided to summariser!")
+TOPIC_SECTION_PROMPT = """You are generating ONE section of an email digest for the topic: {topic_name}
 
-    recent_messages = state["messages"][-4:] if len(state["messages"]) > 4 else state["messages"]
+Given the article summaries below, create an HTML section following this exact format:
 
-    summariser_output = llm_summariser.invoke({
-        "messages": recent_messages,
-        "list_of_summaries": state["summaries"],
-        "reddit_data": json.dumps(reddit_data, indent=2),
-        "input_template": state["email_template"]
+<h2><b>{topic_name}</b></h2>
+<ul>
+  <li><b><a href="URL">Article Title</a></b> - 2-3 sentence summary of the key insight.</li>
+</ul>
+<p><b>Takeaway:</b> <i>1-2 sentence synthesis of what these articles mean together.</i></p>
+
+<hr>
+
+Rules:
+- Every article MUST have a clickable link using the URL provided
+- Keep summaries concise (2-3 sentences max)
+- The takeaway should synthesize the articles, not just repeat them
+- Output ONLY the HTML section, nothing else
+
+Article summaries:
+{summaries}
+"""
+
+
+REDDIT_SECTION_PROMPT = """You are generating ONE section of an email digest for Reddit keyword: "{keyword}"
+
+Given the Reddit post data below, create an HTML section following this exact format:
+
+<h2>Keyword: "{keyword}"</h2>
+<p><b><a href="REDDIT_URL">Post Title</a></b> | [X] upvotes | [Y] comments | r/[subreddit]</p>
+<blockquote>Brief 2-sentence summary of what the post is about.</blockquote>
+<p><b>Top Comments:</b></p>
+<ol>
+  <li><b>u/[author]</b> ([score]): "[Comment excerpt, max 100 chars]..."</li>
+</ol>
+
+<hr>
+
+Rules:
+- Use the exact URL, title, score, and subreddit from the input
+- Keep comment excerpts to max 100 characters, end with "..." if truncated
+- Include up to 5 top comments
+- Output ONLY the HTML section, nothing else
+
+Reddit data:
+{reddit_data}
+"""
+
+
+def generate_topic_section(topic_name: str, summaries: List[Dict], llm) -> str:
+    logger.info(f"[SECTION] Generating section for topic: {topic_name}")
+
+    if not summaries:
+        logger.warning(f"[SECTION] No summaries for topic: {topic_name}")
+        return ""
+
+    prompt = ChatPromptTemplate.from_messages([("system", TOPIC_SECTION_PROMPT)])
+    chain = prompt | llm.with_structured_output(TopicSectionOutput)
+
+    summaries_text = json.dumps(summaries, indent=2)
+    result = chain.invoke({
+        "topic_name": topic_name,
+        "summaries": summaries_text
     })
-    new_messages = [
-        AIMessage(content=summariser_output.email_summary),
-        AIMessage(content=summariser_output.message)
+
+    logger.info(f"[SECTION] Done: {topic_name}")
+    return result.html_section
+
+
+def generate_reddit_section(reddit_item: Dict, llm) -> str:
+    keyword = reddit_item.get('keyword', 'Unknown')
+    logger.info(f"[SECTION] Generating Reddit section for: {keyword}")
+
+    prompt = ChatPromptTemplate.from_messages([("system", REDDIT_SECTION_PROMPT)])
+    chain = prompt | llm.with_structured_output(RedditSectionOutput)
+
+    result = chain.invoke({
+        "keyword": keyword,
+        "reddit_data": json.dumps(reddit_item, indent=2)
+    })
+
+    logger.info(f"[SECTION] Done: {keyword}")
+    return result.html_section
+
+
+def assemble_email(topic_sections: List[str], reddit_sections: List[str]) -> str:
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    html_parts = [
+        f"<h1>Daily AI Insights - {today}</h1>",
+        "<hr>",
     ]
-    logger.info("[GRAPH] Summariser complete")
-    return {
-        "messages": new_messages,
-        "created_summaries": [summariser_output.email_summary]
-    }
 
+    for section in topic_sections:
+        if section:
+            html_parts.append(section)
 
-def reviewer(state: State) -> Dict:
-    logger.info("[GRAPH] Running reviewer node")
-    converted_messages = [
-        HumanMessage(content=msg.content) if isinstance(msg, AIMessage)
-        else AIMessage(content=msg.content) if isinstance(msg, HumanMessage)
-        else msg
-        for msg in state["messages"]
-    ]
+    if reddit_sections:
+        html_parts.append("<h1>Reddit Digest</h1>")
+        html_parts.append("<hr>")
+        for section in reddit_sections:
+            if section:
+                html_parts.append(section)
 
-    state["messages"] = converted_messages
-    reviewer_output = llm_reviewer.invoke({"messages": state["messages"]})
+    html_parts.append("<p><i>Generated automatically</i></p>")
 
-    logger.info(f"[GRAPH] Reviewer decision: approved={reviewer_output.approved}")
-    return {
-        "messages": [HumanMessage(content=reviewer_output.message)],
-        "approved": reviewer_output.approved
-    }
-
-
-MAX_REVIEW_ITERATIONS = 3
-
-def conditional_edge(state: State) -> Literal["summariser", END]:
-    iterations = len(state.get("created_summaries", []))
-    if state["approved"] or iterations >= MAX_REVIEW_ITERATIONS:
-        if iterations >= MAX_REVIEW_ITERATIONS:
-            logger.warning(f"[GRAPH] Max iterations ({MAX_REVIEW_ITERATIONS}) reached, accepting current summary")
-        return END
-    return "summariser"
+    return "\n\n".join(html_parts)
 
 
 def send_email(email_content: str):
-    from datetime import datetime
-
     logger.info("[EMAIL] Sending email via Resend")
 
     resend.api_key = os.getenv("RESEND_API_KEY")
@@ -383,66 +419,49 @@ def main():
     config = QUICK_CONFIG if args.quick else SEARCH_CONFIG
     logger.info(f"[MAIN] Using config: {len(config['topics'])} topics, {len(config['reddit_keywords'])} Reddit keywords")
 
-    relevant_results = []
+    summaries_by_topic = {}
+
     for topic in config["topics"]:
-        logger.info(f"[MAIN] Processing topic: {topic['term']}")
-        results = search_serper(topic["term"], num_results=10 if not args.quick else 5)
+        topic_term = topic["term"]
+        topic_category = topic["category"]
+        logger.info(f"[MAIN] Processing topic: {topic_term}")
+
+        results = search_serper(topic_term, num_results=10 if not args.quick else 5)
 
         for r in results:
-            r['category'] = topic['category']
+            r['category'] = topic_category
+            r['topic_term'] = topic_term
 
         filtered_results = check_search_relevance(results, max_results=args.max_results)
         relevant_ids = [r.id for r in filtered_results.relevant_results]
         filtered_results = [r for r in results if str(r['id']) in relevant_ids]
-        relevant_results.extend(filtered_results)
 
-    logger.info(f"[MAIN] Total relevant results: {len(relevant_results)}")
+        if filtered_results:
+            markdown_contents = scrape_and_save_markdown(filtered_results)
+            summaries = generate_summaries(markdown_contents)
+            summaries_by_topic[topic_category] = summaries
 
-    markdown_contents = scrape_and_save_markdown(relevant_results)
-    summaries = generate_summaries(markdown_contents)
+    logger.info(f"[MAIN] Processed {len(summaries_by_topic)} topics")
 
     reddit_data = fetch_reddit_data(
         config["reddit_keywords"],
         num_comments=5 if not args.quick else 3
     )
 
-    logger.info("[MAIN] Setting up LLM workflow")
+    logger.info("[MAIN] Generating email sections")
     llm = ChatOpenAI(model="gpt-4o-mini")
 
-    with open("email_template.md", "r") as f:
-        email_template = f.read()
+    topic_sections = []
+    for topic_name, summaries in summaries_by_topic.items():
+        section = generate_topic_section(topic_name, summaries, llm)
+        topic_sections.append(section)
 
-    summariser_prompt = ChatPromptTemplate.from_messages([
-        ("system", load_prompt("summariser")),
-        ("placeholder", "{messages}"),
-    ])
+    reddit_sections = []
+    for reddit_item in reddit_data:
+        section = generate_reddit_section(reddit_item, llm)
+        reddit_sections.append(section)
 
-    reviewer_prompt = ChatPromptTemplate.from_messages([
-        ("system", load_prompt("reviewer")),
-        ("placeholder", "{messages}"),
-    ])
-
-    global llm_summariser, llm_reviewer
-    llm_summariser = summariser_prompt | llm.with_structured_output(SummariserOutput)
-    llm_reviewer = reviewer_prompt | llm.with_structured_output(ReviewerOutput)
-
-    graph_builder = StateGraph(State)
-    graph_builder.add_node("summariser", summariser)
-    graph_builder.add_node("reviewer", reviewer)
-    graph_builder.add_edge(START, "summariser")
-    graph_builder.add_edge("summariser", "reviewer")
-    graph_builder.add_conditional_edges('reviewer', conditional_edge)
-
-    graph = graph_builder.compile()
-
-    logger.info("[MAIN] Running graph")
-    output = graph.invoke({
-        "summaries": summaries,
-        "reddit_data": reddit_data,
-        "email_template": email_template
-    })
-
-    final_email = output["created_summaries"][-1]
+    final_email = assemble_email(topic_sections, reddit_sections)
     logger.info(f"[MAIN] Generated email ({len(final_email)} chars)")
 
     if args.dry_run:
