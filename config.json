@@ -2,16 +2,16 @@
   "topics": [
     {"term": "Agentic AI", "category": "Agentic AI"},
     {"term": "H1B visa news", "category": "H1B / Immigration"},
-    {"term": "S&P 500 market today", "category": "Markets & Finance"},
-    {"term": "Roku and its stocks", "category": "CTV & Markets"},
+    {"term": "Roku and its stock", "category": "CTV & Markets"},
     {"term": "How are people using AI Agents in the industry", "category": "AI Agents in Practice"}
   ],
   "reddit_keywords": [
-    {"keyword": "Maduro", "subreddit": null},
-{"keyword": "Donald Trump", "subreddit": null},
-{"keyword": "Claude Code", "subreddit": null},
-{"keyword": "future of AI", "subreddit": null},
+
+    {"keyword": "Claude Code", "subreddit": null},
+{"keyword": "Future of AI", "subreddit": null},
     {"keyword": "Agents as a Service", "subreddit": null},
-    {"keyword": "Agentic AI", "subreddit": "AI_Agents"}
+    
+    {"keyword": "Agentic AI", "subreddit": "AI_Agents"},
+    {"keyword": "H1B visa news", "subreddit": null}
   ]
 }
