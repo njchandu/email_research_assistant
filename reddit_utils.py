@@ -122,6 +122,79 @@ def fetch_post_comments_via_scrapingfish(post_url: str, num_comments: int = 5) -
         return []
 
 
+def fetch_post_by_url(post_url: str, num_comments: int = 10) -> Optional[dict]:
+    """Fetch a Reddit post and its comments by URL using ScrapingFish proxy.
+
+    Args:
+        post_url: Full Reddit post URL
+        num_comments: Number of top comments to return (default: 10)
+
+    Returns:
+        Dict with post details and comments, or None on failure
+    """
+    json_url = post_url.rstrip("/") + ".json"
+    logger.info(f"[REDDIT] Fetching post: {post_url}")
+
+    payload = {
+        "api_key": os.getenv("SCRAPINGFISH_API_KEY"),
+        "url": json_url,
+    }
+
+    try:
+        response = requests.get("https://scraping.narf.ai/api/v1/", params=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as e:
+        logger.error(f"[REDDIT] Failed to fetch post: {e}")
+        return None
+
+    if not data or len(data) < 1:
+        logger.warning("[REDDIT] No post data in response")
+        return None
+
+    try:
+        post_data = data[0]["data"]["children"][0]["data"]
+
+        result = {
+            "title": post_data.get("title", ""),
+            "author": post_data.get("author", "[deleted]"),
+            "subreddit": post_data.get("subreddit", ""),
+            "score": post_data.get("score", 0),
+            "upvote_ratio": post_data.get("upvote_ratio", 0),
+            "num_comments": post_data.get("num_comments", 0),
+            "created_utc": post_data.get("created_utc", 0),
+            "url": post_url,
+            "selftext": post_data.get("selftext", ""),
+            "link_url": post_data.get("url", ""),
+            "is_self": post_data.get("is_self", True),
+            "comments": []
+        }
+
+        if len(data) >= 2:
+            comments = []
+            raw_comments = data[1]["data"]["children"]
+            logger.info(f"[REDDIT] Found {len(raw_comments)} raw comments")
+
+            for child in raw_comments:
+                if child["kind"] == "t1":
+                    comment_data = child["data"]
+                    comments.append({
+                        "author": comment_data.get("author", "[deleted]"),
+                        "score": comment_data.get("score", 0),
+                        "body": comment_data.get("body", ""),
+                    })
+
+            comments_sorted = sorted(comments, key=lambda x: x["score"], reverse=True)
+            result["comments"] = comments_sorted[:num_comments]
+
+        logger.info(f"[REDDIT] Fetched: '{result['title'][:50]}...' ({result['score']} pts, {len(result['comments'])} comments)")
+        return result
+
+    except (KeyError, IndexError) as e:
+        logger.error(f"[REDDIT] Failed to parse post: {e}")
+        return None
+
+
 def get_top_posts_with_comments(
     keyword: str,
     subreddit: Optional[str] = None,
