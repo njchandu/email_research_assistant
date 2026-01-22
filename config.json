@@ -8,14 +8,16 @@
       "term"    : "How are people using AI Agents in the industry",
       "category": "AI Agents in Practice"
     },
-    {"term": "Roku and its stock", "category": "CTV & Markets"}
+    {"term": "Roku and its stock", "category": "CTV & Markets"},
+    {"term": "Opencode", "category": "CTV & Markets"}
 
   ],
   "reddit_keywords": [
     {"keyword": "Claude Code",         "subreddit": null       },
-    {"keyword": "Future of AI",        "subreddit": null       },
+    {"keyword": "Future+of+AI",        "subreddit": null       },
     {"keyword": "Agents as a Service", "subreddit": null       },
     {"keyword": "Agentic AI",          "subreddit": "AI_Agents"},
-    {"keyword": "Single-purpose agent",       "subreddit": null       }
+    {"keyword": "Single-purpose agent",       "subreddit": null       },
+    {"keyword": "Opencode",       "subreddit": null       }
   ]
 }
