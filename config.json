@@ -2,22 +2,19 @@
   "topics": [
     {"term": "Agentic AI", "category": "Agentic AI"},
     {"term": "H1B visa news", "category": "H1B / Immigration"},
-    {"term": "Single-purpose agent", "category": ""},
+    {"term": "Single purpose agent", "category": ""},
     {"term": "Future of AI", "category": ""},
     {
       "term"    : "How are people using AI Agents in the industry",
       "category": "AI Agents in Practice"
     },
-    {"term": "Roku and its stock", "category": "CTV & Markets"},
-    {"term": "Opencode", "category": "CTV & Markets"}
+    {"term": "Roku stock", "category": "CTV & Markets"}
 
   ],
   "reddit_keywords": [
     {"keyword": "Claude Code",         "subreddit": null       },
     {"keyword": "Future+of+AI",        "subreddit": null       },
-    {"keyword": "Agents as a Service", "subreddit": null       },
-    {"keyword": "Agentic AI",          "subreddit": "AI_Agents"},
-    {"keyword": "Single-purpose agent",       "subreddit": null       },
+    {"keyword": "",          "subreddit": "AI_Agents"},
     {"keyword": "Opencode",       "subreddit": null       }
   ]
 }
