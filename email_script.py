@@ -110,9 +110,9 @@ def search_serper(search_query: str, num_results: int = 10) -> List[Dict[str, An
 
     return [
         {
-            'title': result['title'],
-            'link': result['link'],
-            'snippet': result['snippet'],
+            'title': result.get('title', ''),
+            'link': result.get('link', ''),
+            'snippet': result.get('snippet', ''),
             'search_term': search_query,
             'id': idx
         }
