@@ -1,16 +1,12 @@
 {
   "topics": [
-    {"term": "Gen AI", "category": "Agentic AI"},
-    {"term": "H1B visa news", "category": "H1B / Immigration"},
-    {"term": "Future of AI", "category": ""},
-    {"term": "AI Agents in Practice", "category": ""},
+    {"term": "GenAI", "category": "Agentic AI"},
+    {"term": "AI Data Pipelines", "category": ""},
     {"term": "Roku", "category": "CTV & Markets"}
   ],
   "reddit_keywords": [
     {"keyword": "Claude Code",         "subreddit": null       },
-    {"keyword": "Future+of+AI",        "subreddit": null       },
-    {"keyword": "",          "subreddit": "AI_Agents"},
     {"keyword": "Opencode",       "subreddit": null       },
-    {"keyword": "GenAI",       "subreddit": null       }
+    {"keyword": "AI Data Pipelines",       "subreddit": null       }
   ]
 }
