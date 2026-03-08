@@ -3,12 +3,13 @@
     {"term": "GenAI", "category": "Agentic AI"},
     {"term": "AI Data Pipelines", "category": ""},
     {"term": "Roku", "category": "CTV & Markets"},
-    {"term": "Prompt Engineering", "category": ""}
+    {"term": "Prompt Engineering", "category": ""},
+{"term": "AGI", "category": ""}
   ],
   "reddit_keywords": [
     {"keyword": "Claude Code",         "subreddit": null       },
     {"keyword": "Opencode",       "subreddit": null       },
     {"keyword": "AI Data Pipelines",       "subreddit": null       },
-    {"keyword": "Prompts",       "subreddit": null       }
+    {"keyword": "Prompt Engineering",       "subreddit": null       }
   ]
 }
